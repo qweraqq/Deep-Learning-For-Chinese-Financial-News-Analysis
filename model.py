@@ -33,7 +33,7 @@ class FinancialNewsAnalysisModel(object):
         nb_time_step = self.size_of_input_timesteps
         news_input = Input(shape=(nb_time_step, dim_data))
         lstm = LSTM(output_dim=nb_hidden_units, dropout_U=dropout, dropout_W=dropout,
-                            W_regularizer=l2(l2_norm_alpha), b_regularizer=l2(l2_norm_alpha), activation='relu')
+                            W_regularizer=l2(l2_norm_alpha), b_regularizer=l2(l2_norm_alpha), activation='tanh')
         bi_lstm = Bidirectional(lstm, input_shape=(nb_time_step, dim_data), merge_mode='concat')
         all_news_rep = bi_lstm(news_input)
         news_predictions = Dense(1)(all_news_rep)
@@ -49,10 +49,16 @@ class FinancialNewsAnalysisModel(object):
         loss = 'mse'
         self.model.compile(optimizer=optimizer, loss=loss)
 
-    def fit_model(self, X, y, epoch=300):
+    def fit_model(self, X, y, X_val = None, y_val = None, epoch=300):
         early_stopping = EarlyStopping(monitor='val_loss',patience=3, verbose=0)
-        self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=epoch, validation_split=0.2,
-                       shuffle=True, callbacks=[early_stopping])
+        if X_val is None:
+            self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=epoch, validation_split=0.2,
+                           shuffle=True, callbacks=[early_stopping])
+        else:
+            self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=epoch, validation_data=(X_val, y_val),
+                           shuffle=True, callbacks=[early_stopping])
+
+
     def save(self):
         self.model.save_weights(self.model_path, overwrite=True)
 
@@ -69,6 +75,14 @@ class FinancialNewsAnalysisModel(object):
             for w in weights:
                 print("%s: %s" % (w.shape, w))
 
+    def model_eval(self, X, y):
+        y_hat = self.model.predict(X, batch_size=1)
+        count_true = 0
+        count_all = y.shape[0]
+        for i in range(y.shape[0]):
+            count_true = count_true + 1 if y[i,0]*y_hat[i,0]>0 else count_true
+            print y[i,0],y_hat[i,0]
+        print count_all,count_true
 
 if __name__ == '__main__':
     this_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -82,7 +96,22 @@ if __name__ == '__main__':
         X = X_tmp if X is None else np.vstack((X, X_tmp))
         y = y_tmp if y is None else np.vstack((y, y_tmp))
     y = np.resize(y,(y.shape[0], 1))
+
+
+    training_set_path = os.path.join(this_file_path,"testdata",)
+    file_list = os.listdir(training_set_path,)
+    X_val = None
+    y_val = None
+    for idx, f in enumerate(file_list):
+        file_path = os.path.join(training_set_path, f)
+        (X_tmp, y_tmp) = get_news_representation(file_path,year='2016年')
+        X_val = X_tmp if X_val is None else np.vstack((X_val, X_tmp))
+        y_val = y_tmp if y_val is None else np.vstack((y_val, y_tmp))
+    y_val = np.resize(y_val,(y_val.shape[0], 1))
+
     fa_model = FinancialNewsAnalysisModel(200,100,batch_size=32,model_path="fa.model.weights")
     fa_model.compile_model()
-    fa_model.fit_model(X, y)
+
+    fa_model.fit_model(X_val, y_val,X,y)
     fa_model.save()
+    fa_model.model_eval(X_val, y_val)
