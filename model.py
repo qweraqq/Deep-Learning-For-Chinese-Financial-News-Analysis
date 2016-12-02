@@ -9,10 +9,11 @@ from keras.callbacks import EarlyStopping
 import numpy as np
 import os
 import theano.tensor as T
+from keras.utils.visualize_util import plot
 from helper import get_news_representation
 __author__ = 'shenxiangxiang@gmail.com'
 nb_hidden_units = 200
-dropout = 0.2
+dropout = 0.3
 l2_norm_alpha = 0.001
 
 
@@ -60,15 +61,16 @@ class FinancialNewsAnalysisModel(object):
 
     def compile_model(self, lr=0.0001, loss_weights=0.1):
         optimizer = Adam(lr=lr)
-        # loss = 'mse'
-        loss = custom_objective
+        loss = 'mse'
+        # loss = custom_objective
         self.model.compile(optimizer=optimizer, loss=loss)
                            #metrics=['mse'])
+        plot(self.model, to_file='model.png')
 
-    def fit_model(self, X, y, X_val=None, y_val=None, epoch=5):
-        early_stopping = EarlyStopping(monitor='val_loss', patience=200, verbose=0)
+    def fit_model(self, X, y, X_val=None, y_val=None, epoch=500):
+        early_stopping = EarlyStopping(monitor='val_loss', patience=100, verbose=0)
         if X_val is None:
-            self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=epoch, validation_split=0.01,
+            self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=epoch, validation_split=0.2,
                            shuffle=True, callbacks=[early_stopping])
         else:
             self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=epoch, validation_data=(X_val, y_val),
@@ -129,12 +131,14 @@ if __name__ == '__main__':
     # np.save('y_val', y_val)
     X = np.load('X.npy')
     X_val = np.load('X_val.npy')
-    y = np.load('y.npy') / 10
-    y_val = np.load('y_val.npy') / 10
+    y = np.load('y.npy') / 100
+    y_val = np.load('y_val.npy') / 100
 
     fa_model = FinancialNewsAnalysisModel(200, 100, batch_size=512, model_path="fa.model.weights")
     fa_model.compile_model()
 
-    fa_model.fit_model(X, y)
+    X_com = np.vstack((X, X_val))
+    y_com = np.vstack((y, y_val))
+    fa_model.fit_model(X_com, y_com)
     fa_model.save()
     fa_model.model_eval(X_val, y_val)
