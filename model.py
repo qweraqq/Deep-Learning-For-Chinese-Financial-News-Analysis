@@ -48,7 +48,8 @@ class FinancialNewsAnalysisModel(object):
         nb_time_step = self.size_of_input_timesteps
         news_input = Input(shape=(nb_time_step, dim_data), name='x1')
         lstm = LSTM(output_dim=nb_hidden_units, dropout_U=dropout, dropout_W=dropout,
-                    W_regularizer=l2(l2_norm_alpha), b_regularizer=l2(l2_norm_alpha), activation='tanh')
+                    W_regularizer=l2(l2_norm_alpha), b_regularizer=l2(l2_norm_alpha),
+                    activation='tanh', name='h1')
         bi_lstm = Bidirectional(lstm, input_shape=(nb_time_step, dim_data), merge_mode='concat', name='h1')
         all_news_rep = bi_lstm(news_input)
         news_predictions = Dense(1, activation='linear')(all_news_rep)
@@ -139,6 +140,6 @@ if __name__ == '__main__':
 
     X_com = np.vstack((X, X_val))
     y_com = np.vstack((y, y_val))
-    fa_model.fit_model(X_com, y_com, epoch=100)
+    # fa_model.fit_model(X_com, y_com, epoch=100)
     fa_model.save()
     fa_model.model_eval(X_val, y_val)
