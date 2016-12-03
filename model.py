@@ -46,10 +46,10 @@ class FinancialNewsAnalysisModel(object):
     def build(self):
         dim_data = self.size_of_input_data_dim
         nb_time_step = self.size_of_input_timesteps
-        news_input = Input(shape=(nb_time_step, dim_data))
+        news_input = Input(shape=(nb_time_step, dim_data), name='x1')
         lstm = LSTM(output_dim=nb_hidden_units, dropout_U=dropout, dropout_W=dropout,
                     W_regularizer=l2(l2_norm_alpha), b_regularizer=l2(l2_norm_alpha), activation='tanh')
-        bi_lstm = Bidirectional(lstm, input_shape=(nb_time_step, dim_data), merge_mode='concat')
+        bi_lstm = Bidirectional(lstm, input_shape=(nb_time_step, dim_data), merge_mode='concat', name='h1')
         all_news_rep = bi_lstm(news_input)
         news_predictions = Dense(1, activation='linear')(all_news_rep)
         self.model = Model(news_input, news_predictions, name="deep rnn for financial news analysis")
@@ -68,7 +68,7 @@ class FinancialNewsAnalysisModel(object):
         plot(self.model, to_file='model.png')
 
     def fit_model(self, X, y, X_val=None, y_val=None, epoch=500):
-        early_stopping = EarlyStopping(monitor='val_loss', patience=100, verbose=0)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=3, verbose=0)
         if X_val is None:
             self.model.fit(X, y, batch_size=self.batch_size, nb_epoch=epoch, validation_split=0.2,
                            shuffle=True, callbacks=[early_stopping])
@@ -135,10 +135,10 @@ if __name__ == '__main__':
     y_val = np.load('y_val.npy') / 100
 
     fa_model = FinancialNewsAnalysisModel(200, 100, batch_size=512, model_path="fa.model.weights")
-    fa_model.compile_model()
+    fa_model.compile_model(lr=0.001)
 
     X_com = np.vstack((X, X_val))
     y_com = np.vstack((y, y_val))
-    fa_model.fit_model(X_com, y_com)
+    fa_model.fit_model(X_com, y_com, epoch=100)
     fa_model.save()
     fa_model.model_eval(X_val, y_val)
